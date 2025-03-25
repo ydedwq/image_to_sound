@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HD Преобразователь изображения в звук</title>
-    <link rel="icon" type="videos/png" href="/videos/1488165.png">
+    <title>Аудио-визуальный преобразователь</title>
+    <link rel="icon" type="image/png" href="/videos/1488165.png">
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
@@ -16,18 +16,21 @@
         h1 {
             text-align: center;
             color: #333;
+            margin-bottom: 30px;
         }
         .container {
             background-color: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
         canvas {
             max-width: 100%;
             border: 1px solid #ddd;
             margin: 10px 0;
             display: block;
+            background-color: #000;
         }
         button, input[type="file"] {
             margin: 10px 5px 10px 0;
@@ -104,20 +107,53 @@
             font-family: monospace;
             margin-left: 10px;
         }
+        .section-title {
+            margin-top: 0;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 5px;
+        }
+        .dual-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .frequency-legend {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+            color: white;
+            font-size: 12px;
+        }
+        .time-legend {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: black;
+            font-size: 12px;
+        }
+        .spectrogram-wrapper {
+            position: relative;
+        }
     </style>
 </head>
 <body>
+    <h1>Аудио-визуальный преобразователь</h1>
+    
+    <!-- Секция: Изображение → Аудио -->
     <div class="container">
-        <h1>HD Преобразователь изображения в звук</h1>
+        <h3 class="section-title">1. Преобразование изображения в звук</h3>
         
         <div>
-            <h3>1. Загрузите изображение</h3>
+            <h4>Загрузите изображение</h4>
             <input type="file" id="imageInput" accept="image/*">
             <canvas id="imageCanvas"></canvas>
             <div class="status" id="imageStatus"></div>
             
             <div class="image-resize-controls">
-                <h4>Настройки размера изображения</h4>
+                <h5>Настройки размера изображения</h5>
                 <div class="slider-container">
                     <label for="widthSlider">Ширина:</label>
                     <input type="range" id="widthSlider" min="100" max="2000" value="800">
@@ -177,128 +213,162 @@
             <div class="status" id="audioStatus"></div>
             
             <div class="spectrogram-container" id="spectrogramContainer">
-                <h3>HD Спектрограмма</h3>
-                <canvas id="spectrogramCanvas"></canvas>
+                <h4>Спектрограмма созданного звука</h4>
+                <div class="spectrogram-wrapper">
+                    <div class="frequency-legend">Частота (Гц)</div>
+                    <canvas id="spectrogramCanvas"></canvas>
+                    <div class="time-legend">Время (сек)</div>
+                </div>
                 <button id="saveSpectrogramBtn">Сохранить спектрограмму</button>
                 <div class="status" id="spectrogramStatus"></div>
             </div>
         </div>
     </div>
+    
+    <!-- Секция: Аудио → Спектрограмма -->
+    <div class="container">
+        <h3 class="section-title">2. Анализ аудио и создание спектрограммы</h3>
+        
+        <div class="dual-column">
+            <div>
+                <h4>Загрузите аудиофайл</h4>
+                <input type="file" id="audioFileInput" accept="audio/*">
+                <div class="audio-controls">
+                    <audio id="audioFilePlayer" controls></audio>
+                </div>
+                <div class="status" id="audioFileStatus"></div>
+                <button id="analyzeAudioBtn" disabled>Анализировать аудио</button>
+                <div class="progress-container" id="audioAnalysisProgress">
+                    <div class="progress-bar" id="audioAnalysisBar">0%</div>
+                </div>
+            </div>
+            <div>
+                <h4>Результат анализа</h4>
+                <div class="spectrogram-wrapper">
+                    <div class="frequency-legend">Частота (Гц)</div>
+                    <canvas id="audioSpectrogramCanvas"></canvas>
+                    <div class="time-legend">Время (сек)</div>
+                </div>
+                <button id="saveAudioSpectrogramBtn" disabled>Сохранить спектрограмму</button>
+                <div class="status" id="audioSpectrogramStatus"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // Элементы DOM
-        const elements = {
-            imageInput: document.getElementById('imageInput'),
-            imageCanvas: document.getElementById('imageCanvas'),
-            spectrogramCanvas: document.getElementById('spectrogramCanvas'),
-            generateAudioBtn: document.getElementById('generateAudioBtn'),
-            saveAudioBtn: document.getElementById('saveAudioBtn'),
-            saveSpectrogramBtn: document.getElementById('saveSpectrogramBtn'),
-            showSpectrogramBtn: document.getElementById('showSpectrogramBtn'),
-            resizeImageBtn: document.getElementById('resizeImageBtn'),
-            audioPlayer: document.getElementById('audioPlayer'),
-            audioControls: document.getElementById('audioControls'),
-            spectrogramContainer: document.getElementById('spectrogramContainer'),
-            progressContainer: document.getElementById('progressContainer'),
-            progressBar: document.getElementById('progressBar'),
-            imageStatus: document.getElementById('imageStatus'),
-            audioStatus: document.getElementById('audioStatus'),
-            spectrogramStatus: document.getElementById('spectrogramStatus'),
-            sliders: {
-                duration: document.getElementById('durationSlider'),
-                pitch: document.getElementById('pitchSlider'),
-                fftSize: document.getElementById('fftSizeSlider'),
-                brightness: document.getElementById('brightnessSlider'),
-                width: document.getElementById('widthSlider'),
-                height: document.getElementById('heightSlider')
-            },
-            values: {
-                duration: document.getElementById('durationValue'),
-                pitch: document.getElementById('pitchValue'),
-                fftSize: document.getElementById('fftSizeValue'),
-                brightness: document.getElementById('brightnessValue'),
-                width: document.getElementById('widthValue'),
-                height: document.getElementById('heightValue')
-            },
-            keepAspectCheckbox: document.getElementById('keepAspectCheckbox')
-        };
-
-        // Контексты canvas
-        const ctx = {
-            image: elements.imageCanvas.getContext('2d'),
-            spectrogram: elements.spectrogramCanvas.getContext('2d')
-        };
-
-        // Оригинальные размеры изображения
-        let originalImage = null;
-        let originalWidth = 0;
-        let originalHeight = 0;
-        let aspectRatio = 1;
-
-        // Настройки слайдеров
-        function setupSliders() {
-            // Отображаем значения FFT в виде 2^N
-            elements.sliders.fftSize.addEventListener('input', () => {
-                const power = parseInt(elements.sliders.fftSize.value);
-                elements.values.fftSize.textContent = Math.pow(2, power);
+        // ===== Общие функции =====
+        function setupSlider(slider, valueElement, formatter = v => v) {
+            slider.addEventListener('input', () => {
+                valueElement.textContent = formatter(slider.value);
             });
-            
-            // Остальные слайдеры
-            elements.sliders.duration.addEventListener('input', () => {
-                elements.values.duration.textContent = elements.sliders.duration.value;
-            });
-            
-            elements.sliders.pitch.addEventListener('input', () => {
-                elements.values.pitch.textContent = elements.sliders.pitch.value;
-            });
-            
-            elements.sliders.brightness.addEventListener('input', () => {
-                elements.values.brightness.textContent = elements.sliders.brightness.value;
-            });
-
-            // Слайдеры размеров изображения
-            elements.sliders.width.addEventListener('input', updateDimensions);
-            elements.sliders.height.addEventListener('input', updateDimensions);
         }
+        
+        // ===== Секция: Изображение → Аудио =====
+        const imageSection = {
+            elements: {
+                imageInput: document.getElementById('imageInput'),
+                imageCanvas: document.getElementById('imageCanvas'),
+                spectrogramCanvas: document.getElementById('spectrogramCanvas'),
+                generateAudioBtn: document.getElementById('generateAudioBtn'),
+                saveAudioBtn: document.getElementById('saveAudioBtn'),
+                saveSpectrogramBtn: document.getElementById('saveSpectrogramBtn'),
+                showSpectrogramBtn: document.getElementById('showSpectrogramBtn'),
+                resizeImageBtn: document.getElementById('resizeImageBtn'),
+                audioPlayer: document.getElementById('audioPlayer'),
+                audioControls: document.getElementById('audioControls'),
+                spectrogramContainer: document.getElementById('spectrogramContainer'),
+                progressContainer: document.getElementById('progressContainer'),
+                progressBar: document.getElementById('progressBar'),
+                imageStatus: document.getElementById('imageStatus'),
+                audioStatus: document.getElementById('audioStatus'),
+                spectrogramStatus: document.getElementById('spectrogramStatus'),
+                sliders: {
+                    duration: document.getElementById('durationSlider'),
+                    pitch: document.getElementById('pitchSlider'),
+                    fftSize: document.getElementById('fftSizeSlider'),
+                    brightness: document.getElementById('brightnessSlider'),
+                    width: document.getElementById('widthSlider'),
+                    height: document.getElementById('heightSlider')
+                },
+                values: {
+                    duration: document.getElementById('durationValue'),
+                    pitch: document.getElementById('pitchValue'),
+                    fftSize: document.getElementById('fftSizeValue'),
+                    brightness: document.getElementById('brightnessValue'),
+                    width: document.getElementById('widthValue'),
+                    height: document.getElementById('heightValue')
+                },
+                keepAspectCheckbox: document.getElementById('keepAspectCheckbox')
+            },
+            ctx: {
+                image: document.getElementById('imageCanvas').getContext('2d'),
+                spectrogram: document.getElementById('spectrogramCanvas').getContext('2d')
+            },
+            state: {
+                originalImage: null,
+                originalWidth: 0,
+                originalHeight: 0,
+                aspectRatio: 1
+            }
+        };
+
+        // Настройка слайдеров
+        setupSlider(imageSection.elements.sliders.fftSize, imageSection.elements.values.fftSize, 
+                   v => Math.pow(2, parseInt(v)));
+        setupSlider(imageSection.elements.sliders.duration, imageSection.elements.values.duration);
+        setupSlider(imageSection.elements.sliders.pitch, imageSection.elements.values.pitch);
+        setupSlider(imageSection.elements.sliders.brightness, imageSection.elements.values.brightness);
+        setupSlider(imageSection.elements.sliders.width, imageSection.elements.values.width);
+        setupSlider(imageSection.elements.sliders.height, imageSection.elements.values.height);
 
         // Обновление размеров с сохранением пропорций
         function updateDimensions() {
-            if (elements.keepAspectCheckbox.checked && originalWidth > 0 && originalHeight > 0) {
-                if (this === elements.sliders.width) {
-                    const newWidth = parseInt(elements.sliders.width.value);
-                    const newHeight = Math.round(newWidth / aspectRatio);
-                    elements.sliders.height.value = newHeight;
-                    elements.values.height.textContent = newHeight;
+            if (imageSection.elements.keepAspectCheckbox.checked && 
+                imageSection.state.originalWidth > 0 && 
+                imageSection.state.originalHeight > 0) {
+                
+                if (this === imageSection.elements.sliders.width) {
+                    const newWidth = parseInt(imageSection.elements.sliders.width.value);
+                    const newHeight = Math.round(newWidth / imageSection.state.aspectRatio);
+                    imageSection.elements.sliders.height.value = newHeight;
+                    imageSection.elements.values.height.textContent = newHeight;
                 } else {
-                    const newHeight = parseInt(elements.sliders.height.value);
-                    const newWidth = Math.round(newHeight * aspectRatio);
-                    elements.sliders.width.value = newWidth;
-                    elements.values.width.textContent = newWidth;
+                    const newHeight = parseInt(imageSection.elements.sliders.height.value);
+                    const newWidth = Math.round(newHeight * imageSection.state.aspectRatio);
+                    imageSection.elements.sliders.width.value = newWidth;
+                    imageSection.elements.values.width.textContent = newWidth;
                 }
             }
 
-            elements.values.width.textContent = elements.sliders.width.value;
-            elements.values.height.textContent = elements.sliders.height.value;
+            imageSection.elements.values.width.textContent = imageSection.elements.sliders.width.value;
+            imageSection.elements.values.height.textContent = imageSection.elements.sliders.height.value;
         }
+
+        imageSection.elements.sliders.width.addEventListener('input', updateDimensions);
+        imageSection.elements.sliders.height.addEventListener('input', updateDimensions);
 
         // Изменение размера изображения
         function resizeImage() {
-            if (!originalImage) return;
+            if (!imageSection.state.originalImage) return;
 
-            const newWidth = parseInt(elements.sliders.width.value);
-            const newHeight = parseInt(elements.sliders.height.value);
+            const newWidth = parseInt(imageSection.elements.sliders.width.value);
+            const newHeight = parseInt(imageSection.elements.sliders.height.value);
 
-            elements.imageCanvas.width = newWidth;
-            elements.imageCanvas.height = newHeight;
-            ctx.image.drawImage(originalImage, 0, 0, newWidth, newHeight);
+            imageSection.elements.imageCanvas.width = newWidth;
+            imageSection.elements.imageCanvas.height = newHeight;
+            imageSection.ctx.image.drawImage(
+                imageSection.state.originalImage, 
+                0, 0, 
+                newWidth, newHeight
+            );
             
-            elements.imageStatus.textContent = `Изображение изменено: ${newWidth}x${newHeight} пикселей`;
+            imageSection.elements.imageStatus.textContent = `Изображение изменено: ${newWidth}x${newHeight} пикселей`;
         }
 
-        setupSliders();
+        imageSection.elements.resizeImageBtn.addEventListener('click', resizeImage);
 
         // Загрузка изображения
-        elements.imageInput.addEventListener('change', function(e) {
+        imageSection.elements.imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -307,51 +377,49 @@
                 const img = new Image();
                 img.onload = function() {
                     // Сохраняем оригинальное изображение
-                    originalImage = img;
-                    originalWidth = img.width;
-                    originalHeight = img.height;
-                    aspectRatio = originalWidth / originalHeight;
+                    imageSection.state.originalImage = img;
+                    imageSection.state.originalWidth = img.width;
+                    imageSection.state.originalHeight = img.height;
+                    imageSection.state.aspectRatio = img.width / img.height;
 
                     // Устанавливаем начальные значения слайдеров
-                    elements.sliders.width.value = Math.min(originalWidth, 800);
-                    elements.sliders.height.value = Math.min(originalHeight, 400);
-                    elements.values.width.textContent = elements.sliders.width.value;
-                    elements.values.height.textContent = elements.sliders.height.value;
+                    imageSection.elements.sliders.width.value = Math.min(img.width, 800);
+                    imageSection.elements.sliders.height.value = Math.min(img.height, 400);
+                    imageSection.elements.values.width.textContent = imageSection.elements.sliders.width.value;
+                    imageSection.elements.values.height.textContent = imageSection.elements.sliders.height.value;
 
                     // Рисуем изображение с начальными размерами
                     resizeImage();
-                    elements.generateAudioBtn.disabled = false;
+                    imageSection.elements.generateAudioBtn.disabled = false;
                 };
                 img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         });
 
-        // Применение нового размера
-        elements.resizeImageBtn.addEventListener('click', resizeImage);
-
         // Показать/скрыть спектрограмму
-        elements.showSpectrogramBtn.addEventListener('click', function() {
-            elements.spectrogramContainer.style.display = elements.spectrogramContainer.style.display === 'none' ? 'block' : 'none';
+        imageSection.elements.showSpectrogramBtn.addEventListener('click', function() {
+            imageSection.elements.spectrogramContainer.style.display = 
+                imageSection.elements.spectrogramContainer.style.display === 'none' ? 'block' : 'none';
         });
 
         // Генерация аудио из изображения
-        elements.generateAudioBtn.addEventListener('click', async function() {
-            if (elements.imageCanvas.width === 0) {
-                elements.audioStatus.textContent = "Сначала загрузите изображение";
+        imageSection.elements.generateAudioBtn.addEventListener('click', async function() {
+            if (imageSection.elements.imageCanvas.width === 0) {
+                imageSection.elements.audioStatus.textContent = "Сначала загрузите изображение";
                 return;
             }
 
-            elements.audioStatus.textContent = "Создание аудио... (это может занять некоторое время)";
-            elements.generateAudioBtn.disabled = true;
-            elements.progressContainer.style.display = 'block';
-            elements.progressBar.style.width = '0%';
-            elements.progressBar.textContent = '0%';
+            imageSection.elements.audioStatus.textContent = "Создание аудио... (это может занять некоторое время)";
+            imageSection.elements.generateAudioBtn.disabled = true;
+            imageSection.elements.progressContainer.style.display = 'block';
+            imageSection.elements.progressBar.style.width = '0%';
+            imageSection.elements.progressBar.textContent = '0%';
             
             try {
-                const duration = parseFloat(elements.sliders.duration.value);
-                const pitchFactor = parseFloat(elements.sliders.pitch.value);
-                const brightnessFactor = parseFloat(elements.sliders.brightness.value);
+                const duration = parseFloat(imageSection.elements.sliders.duration.value);
+                const pitchFactor = parseFloat(imageSection.elements.sliders.pitch.value);
+                const brightnessFactor = parseFloat(imageSection.elements.sliders.brightness.value);
                 
                 // Создаем аудио контекст
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -359,29 +427,33 @@
                 const totalSamples = Math.floor(duration * sampleRate);
                 
                 // Получаем данные изображения
-                const imageData = ctx.image.getImageData(0, 0, elements.imageCanvas.width, elements.imageCanvas.height);
+                const imageData = imageSection.ctx.image.getImageData(
+                    0, 0, 
+                    imageSection.elements.imageCanvas.width, 
+                    imageSection.elements.imageCanvas.height
+                );
                 const pixels = imageData.data;
                 
                 // Создаем аудио буфер
                 const audioBuffer = audioContext.createBuffer(1, totalSamples, sampleRate);
                 const output = audioBuffer.getChannelData(0);
                 
-                // Преобразуем изображение в звук (усовершенствованный метод)
-                const columnWidth = elements.imageCanvas.width / duration;
-                const heightFactor = 1 / elements.imageCanvas.height;
+                // Преобразуем изображение в звук
+                const columnWidth = imageSection.elements.imageCanvas.width / duration;
+                const heightFactor = 1 / imageSection.elements.imageCanvas.height;
                 
                 // Разбиваем на части для обновления прогресса
                 const chunkSize = Math.floor(totalSamples / 100);
                 
                 for (let i = 0; i < totalSamples; i++) {
                     const time = i / sampleRate;
-                    const x = Math.floor(time * columnWidth * pitchFactor) % elements.imageCanvas.width;
+                    const x = Math.floor(time * columnWidth * pitchFactor) % imageSection.elements.imageCanvas.width;
                     
                     let sampleValue = 0;
                     
                     // Суммируем вклады от всех строк изображения
-                    for (let y = 0; y < elements.imageCanvas.height; y++) {
-                        const idx = (y * elements.imageCanvas.width + x) * 4;
+                    for (let y = 0; y < imageSection.elements.imageCanvas.height; y++) {
+                        const idx = (y * imageSection.elements.imageCanvas.width + x) * 4;
                         const r = pixels[idx];
                         const g = pixels[idx + 1];
                         const b = pixels[idx + 2];
@@ -401,35 +473,35 @@
                     }
                     
                     // Нормализуем и ограничиваем значение
-                    output[i] = Math.max(-0.99, Math.min(0.99, sampleValue / elements.imageCanvas.height * 2));
+                    output[i] = Math.max(-0.99, Math.min(0.99, sampleValue / imageSection.elements.imageCanvas.height * 2));
                     
                     // Обновляем прогресс
                     if (i % chunkSize === 0) {
                         const progress = Math.floor((i / totalSamples) * 100);
-                        elements.progressBar.style.width = `${progress}%`;
-                        elements.progressBar.textContent = `${progress}%`;
-                        await new Promise(resolve => setTimeout(resolve, 0)); // Даем браузеру обновиться
+                        imageSection.elements.progressBar.style.width = `${progress}%`;
+                        imageSection.elements.progressBar.textContent = `${progress}%`;
+                        await new Promise(resolve => setTimeout(resolve, 0));
                     }
                 }
                 
-                elements.progressBar.style.width = '100%';
-                elements.progressBar.textContent = '100%';
+                imageSection.elements.progressBar.style.width = '100%';
+                imageSection.elements.progressBar.textContent = '100%';
                 
                 // Создаем спектрограмму
-                await createSpectrogram(audioBuffer, audioContext);
+                await createImageSpectrogram(audioBuffer, audioContext);
                 
                 // Сохраняем аудио для скачивания
                 const audioBlob = await bufferToWave(audioBuffer, totalSamples);
                 const audioUrl = URL.createObjectURL(audioBlob);
-                elements.audioPlayer.src = audioUrl;
-                elements.audioControls.style.display = 'block';
+                imageSection.elements.audioPlayer.src = audioUrl;
+                imageSection.elements.audioControls.style.display = 'block';
                 
-                elements.audioStatus.textContent = "Аудио создано!";
-                elements.generateAudioBtn.disabled = false;
-                elements.progressContainer.style.display = 'none';
+                imageSection.elements.audioStatus.textContent = "Аудио создано!";
+                imageSection.elements.generateAudioBtn.disabled = false;
+                imageSection.elements.progressContainer.style.display = 'none';
                 
                 // Функция для сохранения аудио
-                elements.saveAudioBtn.onclick = function() {
+                imageSection.elements.saveAudioBtn.onclick = function() {
                     const a = document.createElement('a');
                     a.href = audioUrl;
                     a.download = 'image-sound.wav';
@@ -437,73 +509,25 @@
                 };
                 
             } catch (error) {
-                elements.audioStatus.textContent = "Ошибка: " + error.message;
+                imageSection.elements.audioStatus.textContent = "Ошибка: " + error.message;
                 console.error(error);
-                elements.generateAudioBtn.disabled = false;
-                elements.progressContainer.style.display = 'none';
+                imageSection.elements.generateAudioBtn.disabled = false;
+                imageSection.elements.progressContainer.style.display = 'none';
             }
         });
 
-        // Функция для преобразования аудио буфера в WAV файл
-        async function bufferToWave(audioBuffer, len) {
-            const numOfChan = 1;
-            const length = len * numOfChan * 2 + 44;
-            const buffer = new ArrayBuffer(length);
-            const view = new DataView(buffer);
-            let pos = 0;
+        // Создание спектрограммы для изображения
+        async function createImageSpectrogram(audioBuffer, audioContext) {
+            imageSection.elements.spectrogramStatus.textContent = "Создание HD спектрограммы...";
+            imageSection.elements.spectrogramContainer.style.display = 'none';
             
-            // Записываем WAV заголовок
-            setUint32(0x46464952); // "RIFF"
-            setUint32(length - 8); // file length - 8
-            setUint32(0x45564157); // "WAVE"
-            
-            setUint32(0x20746d66); // "fmt " chunk
-            setUint32(16); // length = 16
-            setUint16(1); // PCM (uncompressed)
-            setUint16(numOfChan);
-            setUint32(audioBuffer.sampleRate);
-            setUint32(audioBuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-            setUint16(numOfChan * 2); // block-align
-            setUint16(16); // 16-bit (hardcoded)
-            
-            setUint32(0x61746164); // "data" - chunk
-            setUint32(length - pos - 4); // chunk length
-            
-            // Записываем PCM samples
-            const chanData = audioBuffer.getChannelData(0);
-            for (let i = 0; i < chanData.length; i++) {
-                const sample = Math.max(-1, Math.min(1, chanData[i]));
-                setUint16(sample * 32767);
-            }
-            
-            // Вспомогательные функции
-            function setUint16(data) {
-                view.setUint16(pos, data, true);
-                pos += 2;
-            }
-            
-            function setUint32(data) {
-                view.setUint32(pos, data, true);
-                pos += 4;
-            }
-            
-            return new Blob([buffer], { type: 'audio/wav' });
-        }
-
-        // Улучшенное создание спектрограммы
-        async function createSpectrogram(audioBuffer, audioContext) {
-            elements.spectrogramStatus.textContent = "Создание HD спектрограммы...";
-            elements.spectrogramContainer.style.display = 'none';
-            
-            const sampleRate = audioBuffer.sampleRate;
-            const channelData = audioBuffer.getChannelData(0);
-            const fftSize = Math.pow(2, parseInt(elements.sliders.fftSize.value));
-            const width = elements.spectrogramCanvas.width = 1200;
-            const height = elements.spectrogramCanvas.height = 600;
+            const fftSize = Math.pow(2, parseInt(imageSection.elements.sliders.fftSize.value));
+            const width = imageSection.elements.spectrogramCanvas.width = 1200;
+            const height = imageSection.elements.spectrogramCanvas.height = 600;
             
             // Очищаем canvas
-            ctx.spectrogram.fillStyle = '#000011';
-            ctx.spectrogram.fillRect(0, 0, width, height);
+            imageSection.ctx.spectrogram.fillStyle = '#000011';
+            imageSection.ctx.spectrogram.fillRect(0, 0, width, height);
             
             // Создаем анализер
             const analyser = audioContext.createAnalyser();
@@ -516,7 +540,6 @@
             
             // Подготовка данных
             const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-            const spectrogramData = [];
             let currentX = 0;
             const columnWidth = width / (audioBuffer.duration * 20); // 20 колонок в секунду
             
@@ -563,8 +586,8 @@
                     g = Math.min(255, g * boost);
                     b = Math.min(255, b * boost);
                     
-                    ctx.spectrogram.fillStyle = `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
-                    ctx.spectrogram.fillRect(currentX, height - y - 1, Math.ceil(columnWidth), 1);
+                    imageSection.ctx.spectrogram.fillStyle = `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+                    imageSection.ctx.spectrogram.fillRect(currentX, height - y - 1, Math.ceil(columnWidth), 1);
                 }
                 
                 currentX += columnWidth;
@@ -575,26 +598,232 @@
             analyser.connect(scriptNode);
             scriptNode.connect(audioContext.destination);
             
-            // Запускаем воспроизведение
-            bufferSource.start();
-            
             // Сохранение спектрограммы
-            elements.saveSpectrogramBtn.onclick = function() {
+            imageSection.elements.saveSpectrogramBtn.onclick = function() {
                 const link = document.createElement('a');
                 link.download = 'hd-spectrogram.png';
-                link.href = elements.spectrogramCanvas.toDataURL('image/png');
+                link.href = imageSection.elements.spectrogramCanvas.toDataURL('image/png');
                 link.click();
             };
+            
+            // Запускаем воспроизведение
+            bufferSource.start();
             
             // Обработка завершения
             return new Promise((resolve) => {
                 bufferSource.onended = function() {
-                    elements.spectrogramStatus.textContent = `HD спектрограмма создана (${fftSize} точек FFT)`;
+                    imageSection.elements.spectrogramStatus.textContent = `HD спектрограмма создана (${fftSize} точек FFT)`;
                     scriptNode.disconnect();
-                    elements.spectrogramContainer.style.display = 'block';
+                    imageSection.elements.spectrogramContainer.style.display = 'block';
                     resolve();
                 };
             });
+        }
+
+        // ===== Секция: Аудио → Спектрограмма =====
+        const audioAnalysisSection = {
+            elements: {
+                audioInput: document.getElementById('audioFileInput'),
+                audioPlayer: document.getElementById('audioFilePlayer'),
+                spectrogramCanvas: document.getElementById('audioSpectrogramCanvas'),
+                analyzeBtn: document.getElementById('analyzeAudioBtn'),
+                saveBtn: document.getElementById('saveAudioSpectrogramBtn'),
+                audioStatus: document.getElementById('audioFileStatus'),
+                spectrogramStatus: document.getElementById('audioSpectrogramStatus'),
+                progressContainer: document.getElementById('audioAnalysisProgress'),
+                progressBar: document.getElementById('audioAnalysisBar')
+            },
+            ctx: {
+                spectrogram: document.getElementById('audioSpectrogramCanvas').getContext('2d')
+            }
+        };
+
+        // Загрузка аудиофайла
+        audioAnalysisSection.elements.audioInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            audioAnalysisSection.elements.audioStatus.textContent = "Загрузка аудио...";
+            audioAnalysisSection.elements.analyzeBtn.disabled = true;
+            audioAnalysisSection.elements.saveBtn.disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                audioAnalysisSection.elements.audioPlayer.src = event.target.result;
+                audioAnalysisSection.elements.audioStatus.textContent = "Аудио загружено. Нажмите 'Анализировать аудио'";
+                audioAnalysisSection.elements.analyzeBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Анализ аудио и создание спектрограммы
+        audioAnalysisSection.elements.analyzeBtn.addEventListener('click', async function() {
+            if (!audioAnalysisSection.elements.audioPlayer.src) {
+                audioAnalysisSection.elements.spectrogramStatus.textContent = "Сначала загрузите аудиофайл";
+                return;
+            }
+
+            audioAnalysisSection.elements.spectrogramStatus.textContent = "Анализ аудио...";
+            audioAnalysisSection.elements.analyzeBtn.disabled = true;
+            audioAnalysisSection.elements.saveBtn.disabled = true;
+            audioAnalysisSection.elements.progressContainer.style.display = 'block';
+            audioAnalysisSection.elements.progressBar.style.width = '0%';
+            
+            try {
+                // Создаем аудио контекст
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Загружаем аудио данные
+                const response = await fetch(audioAnalysisSection.elements.audioPlayer.src);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                // Параметры спектрограммы
+                const duration = audioBuffer.duration;
+                const sampleRate = audioBuffer.sampleRate;
+                const fftSize = 4096; // Размер FFT для хорошей детализации
+                const overlapFactor = 0.75; // Перекрытие между кадрами
+                
+                // Настройки отображения
+                audioAnalysisSection.elements.spectrogramCanvas.width = Math.min(2000, Math.floor(duration * 100)); // 100 пикселей на секунду
+                audioAnalysisSection.elements.spectrogramCanvas.height = 512;
+                
+                // Очищаем canvas
+                audioAnalysisSection.ctx.spectrogram.fillStyle = 'black';
+                audioAnalysisSection.ctx.spectrogram.fillRect(0, 0, 
+                    audioAnalysisSection.elements.spectrogramCanvas.width, 
+                    audioAnalysisSection.elements.spectrogramCanvas.height
+                );
+                
+                // Создаем анализатор
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = fftSize;
+                const bufferLength = analyser.frequencyBinCount;
+                const frequencyData = new Uint8Array(bufferLength);
+                
+                // Создаем источник
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                
+                // Подключаем анализатор
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                // Параметры для прогресса
+                const totalSamples = audioBuffer.length;
+                const samplesPerPixel = totalSamples / audioAnalysisSection.elements.spectrogramCanvas.width;
+                let currentX = 0;
+                
+                // Функция обработки кадров
+                const processFrame = () => {
+                    if (currentX >= audioAnalysisSection.elements.spectrogramCanvas.width) {
+                        source.stop();
+                        audioAnalysisSection.elements.spectrogramStatus.textContent = "Анализ завершен!";
+                        audioAnalysisSection.elements.analyzeBtn.disabled = false;
+                        audioAnalysisSection.elements.saveBtn.disabled = false;
+                        audioAnalysisSection.elements.progressBar.style.width = '100%';
+                        return;
+                    }
+                    
+                    // Получаем частотные данные
+                    analyser.getByteFrequencyData(frequencyData);
+                    
+                    // Рисуем столбец спектрограммы
+                    for (let y = 0; y < audioAnalysisSection.elements.spectrogramCanvas.height; y++) {
+                        // Логарифмическое масштабирование частот (для лучшего отображения низких частот)
+                        const freqIndex = Math.floor(
+                            Math.pow(y / audioAnalysisSection.elements.spectrogramCanvas.height, 0.7) * bufferLength
+                        );
+                        
+                        const value = frequencyData[freqIndex] / 255;
+                        
+                        // Цветовая схема (тепловая карта)
+                        const hue = 240 - (value * 240); // От синего к красному
+                        const saturation = 100;
+                        const lightness = value * 50 + 20;
+                        audioAnalysisSection.ctx.spectrogram.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                        audioAnalysisSection.ctx.spectrogram.fillRect(
+                            currentX, 
+                            audioAnalysisSection.elements.spectrogramCanvas.height - y - 1, 
+                            1, 
+                            1
+                        );
+                    }
+                    
+                    // Обновляем прогресс
+                    currentX++;
+                    audioAnalysisSection.elements.progressBar.style.width = 
+                        `${(currentX / audioAnalysisSection.elements.spectrogramCanvas.width * 100)}%`;
+                    
+                    // Продолжаем обработку
+                    requestAnimationFrame(processFrame);
+                };
+                
+                // Запускаем анализ
+                source.start();
+                processFrame();
+                
+                // Сохранение спектрограммы
+                audioAnalysisSection.elements.saveBtn.addEventListener('click', function() {
+                    const link = document.createElement('a');
+                    link.download = 'audio-spectrogram.png';
+                    link.href = audioAnalysisSection.elements.spectrogramCanvas.toDataURL('image/png');
+                    link.click();
+                });
+                
+            } catch (error) {
+                audioAnalysisSection.elements.spectrogramStatus.textContent = "Ошибка: " + error.message;
+                console.error(error);
+                audioAnalysisSection.elements.analyzeBtn.disabled = false;
+                audioAnalysisSection.elements.progressContainer.style.display = 'none';
+            }
+        });
+
+        // ===== Общие функции =====
+        // Функция для преобразования аудио буфера в WAV файл
+        async function bufferToWave(audioBuffer, len) {
+            const numOfChan = 1;
+            const length = len * numOfChan * 2 + 44;
+            const buffer = new ArrayBuffer(length);
+            const view = new DataView(buffer);
+            let pos = 0;
+            
+            // Записываем WAV заголовок
+            setUint32(0x46464952); // "RIFF"
+            setUint32(length - 8); // file length - 8
+            setUint32(0x45564157); // "WAVE"
+            
+            setUint32(0x20746d66); // "fmt " chunk
+            setUint32(16); // length = 16
+            setUint16(1); // PCM (uncompressed)
+            setUint16(numOfChan);
+            setUint32(audioBuffer.sampleRate);
+            setUint32(audioBuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+            setUint16(numOfChan * 2); // block-align
+            setUint16(16); // 16-bit (hardcoded)
+            
+            setUint32(0x61746164); // "data" - chunk
+            setUint32(length - pos - 4); // chunk length
+            
+            // Записываем PCM samples
+            const chanData = audioBuffer.getChannelData(0);
+            for (let i = 0; i < chanData.length; i++) {
+                const sample = Math.max(-1, Math.min(1, chanData[i]));
+                setUint16(sample * 32767);
+            }
+            
+            // Вспомогательные функции
+            function setUint16(data) {
+                view.setUint16(pos, data, true);
+                pos += 2;
+            }
+            
+            function setUint32(data) {
+                view.setUint32(pos, data, true);
+                pos += 4;
+            }
+            
+            return new Blob([buffer], { type: 'audio/wav' });
         }
     </script>
 </body>
